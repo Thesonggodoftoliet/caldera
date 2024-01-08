@@ -2,7 +2,7 @@ import json
 import logging
 import threading
 import time
-
+from RpcClient import RpcClient
 import pika
 import polling
 from flask import request
@@ -48,7 +48,7 @@ def on_message(channel, method, properties, body):
     elif request_data['method'] == 'match':
         threading.Thread(target=rpc.match_paw_ip, args=(channel, method, properties)).start()
     elif request_data['method'] == 'assign':
-        threading.Thread(target=rpc.assign_ip, args=(channel, method,properties, request_data['data'])).start()
+        threading.Thread(target=rpc.assign_ip, args=(channel, method, properties, request_data['data'])).start()
     else:
         test_task(channel, method, properties, request_data['data'])
 
@@ -223,16 +223,17 @@ def query_caldera_state(operation_id=''):
         timeline["filed"] = chain["ability"]["name"]
         timeline["action"] = "攻击结束"
         publish_caldera(json.dumps(timeline))
-        message = {"start_time": chain["decide"], "end_time": chain["finish"], "command": chain["executor"]["command"],
+        message = {"start_time": chain["decide"], "end_time": chain["finish"], "command": chain["command"],
                    "technique_name": chain["ability"]["technique_name"], "case_des": chain["ability"]["description"],
                    "technique_id": chain["ability"]["technique_id"], "tactic": chain["ability"]["tactic"],
-                   "status": chain["status"], "operation_id": operation_id,
-                   "ability_id": chain["ability"]["ability_id"]}
+                   "status": chain["status"], "operation_id": operation_id, "testcase_name": chain["ability"]["name"],
+                   "case_id": chain["id"], "paw": chain["paw"], "ability_id": chain["ability"]["ability_id"]}
         messages.append(message)
-    url = "http://127.0.0.1:8080/case/updateFromCaldera"
-    data = requests.post(url=url, data=json.dumps(messages), verify=False)
-    print(data.json())
-    return data.json()
+    rpclient = RpcClient()
+    msg = {"method": "updateFromCaldera", "params": messages}
+    response = rpclient.call(json.dumps(msg))
+    print("[返回的数据]" + response)
+    return response
     # 处理返回值
 
 
